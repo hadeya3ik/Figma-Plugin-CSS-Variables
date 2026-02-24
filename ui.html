@@ -1,0 +1,217 @@
+<style>
+  main, .variableContainer, .figmaName, .colorValue, .cssName  {
+    display: flex;
+    flex-direction: column;
+  }
+
+  main {
+    gap: 1.5rem;
+    padding: 2rem;
+  }
+
+  .variableContainer {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+  }
+
+  .figmaName, .colorValue {
+    gap: 3px;
+  }
+
+  .colorSwatch {
+    height: 15px;
+    width: 15px;
+    border: black solid 1px;;
+  }
+
+  .valueContainerInner{
+    display: flex;
+    gap : 5px;
+  }
+
+  #cssTextarea {
+    width: 625px;
+  }
+
+  input {
+    width: 200px;
+  }
+
+</style>
+
+<main>
+  <h3 class="header"></h3>
+  <button class="exportButton">Export to css! </button>
+  <div class="ModeContainer"></div>
+  <div>
+    <textarea id="cssTextarea" rows="9" placeholder="insert CSS variable names separated by comma's">
+      --product-theme-accent,
+      --product-theme-accent-text-hover,
+      --product-theme-tile-bg,
+      --product-theme-tile-border,
+      --product-theme-subtitle,
+      --background-pack-selector-active,
+      --background-pack-selector,
+      --color-pack-selector-border,
+      --color-pack-selector-border-active,
+      --product-theme-page-background,
+      --color-link,
+      --product-theme-title-color,
+      --product-theme-background,
+      --product-theme-plat-bg
+    </textarea>
+  </div>
+  <div class="variableContainer">
+    <div class="figmaName">
+      <h5>figma name</h5>
+    </div>
+    <div class="colorValue">
+      <h5>value</h5>
+    </div>
+    <div class="cssName">
+      <h5>css name</h5>
+    </div>
+  </div>
+</main>
+
+<script>
+
+const defaultCssNames = [
+];
+const div = document.querySelector(".variableContainer")
+
+parent.postMessage({pluginMessage : {type : "getVariables"}}, '*')
+
+window.onmessage= (event) =>  {
+
+  let selectedMode =  event.data.pluginMessage.modes[0]
+  const header = document.querySelector(".header");
+  header.textContent = event.data.pluginMessage.type
+
+  console.log(event.data.pluginMessage.type)
+  console.log(event.data.pluginMessage.modes)
+  console.log(event.data.pluginMessage.variablesList)
+
+
+  // selecting the variable mode 
+  const ModeContainer = document.querySelector(".ModeContainer")
+
+  event.data.pluginMessage.modes.forEach((mode) => {
+    const ModeButton = document.createElement("button")
+   
+    ModeButton.addEventListener("click", (e) => {
+      selectedMode = mode
+      console.log("selectedMode: ", selectedMode)
+      // find a way to refresh the page 
+      
+    })
+    
+    console.log("mode")
+    console.log(mode)
+    ModeButton.textContent = mode.name
+    ModeContainer.appendChild(ModeButton)
+  })
+
+  // displaying each variable and value 
+  const figmaNameContainer = document.querySelector(".figmaName") 
+  const valueContainer = document.querySelector(".colorValue") 
+  const cssNameContainer = document.querySelector(".cssName") 
+
+  event.data.pluginMessage.variablesList.forEach((element, index) => {
+    // console.log("frontend name: ", element.name)
+    // console.log("frontend id: ", element.id)
+    // console.log("frontend value: ", element.valuesByMode)
+    const variableHeader = document.createElement("text")
+    variableHeader.textContent = element.name
+    figmaNameContainer.appendChild(variableHeader)
+
+    const variableValue = document.createElement("text")
+
+    const valueContainerInner = document.createElement("div")
+
+    // color swatch
+    const colorSwatch = document.createElement("div");
+    colorSwatch.classList.add("colorSwatch");
+    colorSwatch.style.backgroundColor = rgbToHex(element.valuesByMode[selectedMode.modeId]);
+    valueContainerInner.appendChild(colorSwatch);
+
+    // color value label 
+    valueContainerInner.classList.add("valueContainerInner")
+    variableValue.textContent = rgbToHex(element.valuesByMode[selectedMode.modeId])
+    valueContainerInner.appendChild(variableValue)
+
+    valueContainer.appendChild(valueContainerInner)
+
+    // const input = document.createElement("input")
+    // input.value = defaultCssNames[index] || "";
+    // cssNameContainer.appendChild(input)
+
+    // console.log( "MODE", element.valuesByMode[selectedMode.modeId])
+    // console.log( "SELEct MODE", selectedMode.modeId)
+    // const new_p = document.createElement("p")
+    // new_p.textContent = element.id
+    // div.appendChild(new_p)
+  });
+
+  document.querySelector(".exportButton").addEventListener("click", exportToCSS);
+
+}
+
+function exportToCSS() {
+  const cssInputs = document.querySelectorAll(".cssName input");
+  const valueBlocks = document.querySelectorAll(".valueContainerInner text");
+
+  let cssOutput = ":root {\n";
+
+  cssInputs.forEach((input, index) => {
+    const cssVarName = input.value.trim();
+    const value = valueBlocks[index].textContent?.trim();
+
+    if (cssVarName && value) {
+      cssOutput += `  ${cssVarName}: ${value};\n`;
+    }
+  });
+
+  cssOutput += "}";
+
+  console.log(cssOutput);
+}
+
+function rgbToHex({ r, g, b }) {
+  const toHex = (value) => {
+    const hex = Math.round(value * 255).toString(16);
+    return hex.length === 1 ? "0" + hex : hex;
+  };
+
+  const hex = [toHex(r), toHex(g), toHex(b)].join("");
+  return `#${hex}`;
+}
+
+// --- NEW FEATURE: Load CSS names from textarea ---
+const cssTextarea = document.getElementById("cssTextarea");
+
+cssTextarea.addEventListener("input", () => {
+  // Read textarea → array
+  const parsedList = cssTextarea.value
+    .split(",")
+    .map(v => v.trim())
+    .filter(Boolean);
+
+  // Get container
+  const cssNameContainer = document.querySelector(".cssName");
+  cssNameContainer.querySelectorAll("input").forEach(i => i.remove());
+
+  // Add new ones
+  parsedList.forEach(name => {
+    const input = document.createElement("input");
+    input.value = name;
+    cssNameContainer.appendChild(input);
+  });
+});
+
+cssTextarea.dispatchEvent(new Event("input"));
+
+</script>
+
+
